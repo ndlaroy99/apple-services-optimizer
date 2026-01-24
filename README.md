@@ -21,7 +21,7 @@ Find the most cost-effective way to subscribe to your favorite Apple services.
 
 1. Clone the repository
 ```bash
-git clone https://github.com/YOUR_USERNAME/apple-services-optimizer.git
+git clone https://github.com/ndlaroy99/apple-services-optimizer.git
 cd apple-services-optimizer
 ```
 
