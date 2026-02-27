@@ -1,5 +1,43 @@
-import React, { useState } from 'react';
-import { ChevronRight, ChevronLeft, DollarSign, Users, MapPin, Check, AlertCircle, Share2, Save } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import {
+  AlertCircle,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  DollarSign,
+  Save,
+  Share2,
+  Users,
+  X
+} from 'lucide-react';
+import { STORAGE_TIERS } from './data/plans';
+import {
+  CURRENCY_SYMBOLS,
+  REGION_CONFIG,
+  SUPPORTED_COUNTRIES,
+  SUPPORTED_CURRENCIES
+} from './data/regions';
+import {
+  buildRecommendations,
+  getDefaultCurrencyForCountry,
+  getRegionTax
+} from './lib/optimizer';
+
+const SERVICE_OPTIONS = [
+  { key: 'music', label: 'Apple Music', desc: 'Stream millions of songs' },
+  { key: 'tv', label: 'Apple TV+', desc: 'Original shows and movies' },
+  { key: 'news', label: 'Apple News+', desc: 'Magazines and newspapers' },
+  { key: 'fitness', label: 'Apple Fitness+', desc: 'Workout videos (requires Apple Watch)' },
+  { key: 'arcade', label: 'Apple Arcade', desc: 'Gaming subscription' },
+  { key: 'icloud', label: 'iCloud+', desc: 'Cloud storage' }
+];
+
+const DEVICE_OPTIONS = [
+  { key: 'iphone', label: 'iPhone (3 months free Apple TV+)' },
+  { key: 'ipad', label: 'iPad (3 months free Apple TV+)' },
+  { key: 'mac', label: 'Mac (3 months free Apple TV+)' },
+  { key: 'appleWatch', label: 'Apple Watch (3 months free Fitness+)' }
+];
 
 const AppleServicesOptimizer = () => {
   const [step, setStep] = useState(1);
@@ -23,216 +61,23 @@ const AppleServicesOptimizer = () => {
     currentSubscriptions: []
   });
 
-  const [results, setResults] = useState(null);
+  const [results, setResults] = useState([]);
+  const [currentSubDraft, setCurrentSubDraft] = useState({ name: '', price: '' });
 
-  // Data structures based on the PDF
-  const serviceData = {
-    appleOneIndividual: {
-      name: 'Apple One Individual',
-      services: ['iCloud 50GB', 'Apple Music', 'Apple TV+', 'Apple Arcade'],
-      price: 19.95,
-      familyShare: 1,
-      source: 'apple'
-    },
-    appleOneFamily: {
-      name: 'Apple One Family',
-      services: ['iCloud 200GB', 'Apple Music', 'Apple TV+', 'Apple Arcade'],
-      price: 25.95,
-      familyShare: 5,
-      source: 'apple'
-    },
-    appleOnePremier: {
-      name: 'Apple One Premier',
-      services: ['iCloud 2TB', 'Apple Music', 'Apple TV+', 'Apple Arcade', 'Apple News+', 'Apple Fitness+'],
-      price: 37.95,
-      familyShare: 5,
-      source: 'apple'
-    },
-    appleOneIndividualVerizon: {
-      name: 'Apple One Individual (Verizon)',
-      services: ['iCloud 50GB', 'Apple Music', 'Apple TV+', 'Apple Arcade'],
-      price: 15.00,
-      familyShare: 1,
-      source: 'verizon',
-      prerequisite: 'Requires myPlan'
-    },
-    appleOneFamilyVerizon: {
-      name: 'Apple One Family (Verizon)',
-      services: ['iCloud 200GB', 'Apple Music', 'Apple TV+', 'Apple Arcade'],
-      price: 20.00,
-      familyShare: 5,
-      source: 'verizon',
-      prerequisite: 'Requires myPlan'
-    },
-    musicStudent: {
-      name: 'Apple Music Student',
-      services: ['Apple Music', 'Apple TV+'],
-      price: 5.99,
-      familyShare: 1,
-      source: 'apple',
-      prerequisite: 'Student verification required'
-    },
-    musicIndividual: {
-      name: 'Apple Music Individual',
-      services: ['Apple Music'],
-      price: 10.99,
-      familyShare: 1,
-      source: 'apple'
-    },
-    musicFamily: {
-      name: 'Apple Music Family',
-      services: ['Apple Music'],
-      price: 16.99,
-      familyShare: 5,
-      source: 'apple'
-    },
-    musicIndividualVerizon: {
-      name: 'Apple Music Individual (Verizon)',
-      services: ['Apple Music'],
-      price: 10.99,
-      familyShare: 1,
-      source: 'verizon',
-      prerequisite: 'Requires 5G Get More'
-    },
-    musicFamilyVerizon: {
-      name: 'Apple Music Family (Verizon)',
-      services: ['Apple Music'],
-      price: 10.00,
-      familyShare: 5,
-      source: 'verizon',
-      prerequisite: 'Requires myPlan'
-    },
-    tvMonthly: {
-      name: 'Apple TV+',
-      services: ['Apple TV+'],
-      price: 12.99,
-      familyShare: 5,
-      source: 'apple'
-    },
-    tvAnnual: {
-      name: 'Apple TV+ (Annual)',
-      services: ['Apple TV+'],
-      price: 99.00 / 12,
-      familyShare: 5,
-      source: 'apple',
-      billingPeriod: 'annual'
-    },
-    tvTMobile: {
-      name: 'Apple TV+ (T-Mobile)',
-      services: ['Apple TV+'],
-      price: 3.00,
-      familyShare: 5,
-      source: 'tmobile',
-      prerequisite: 'Requires Better Value or Experience Beyond plan'
-    },
-    newsPlus: {
-      name: 'Apple News+',
-      services: ['Apple News+'],
-      price: 12.99,
-      familyShare: 5,
-      source: 'apple'
-    },
-    fitnessMonthly: {
-      name: 'Apple Fitness+',
-      services: ['Apple Fitness+'],
-      price: 9.99,
-      familyShare: 5,
-      source: 'apple',
-      deviceRequired: 'Apple Watch'
-    },
-    fitnessAnnual: {
-      name: 'Apple Fitness+ (Annual)',
-      services: ['Apple Fitness+'],
-      price: 79.99 / 12,
-      familyShare: 5,
-      source: 'apple',
-      billingPeriod: 'annual',
-      deviceRequired: 'Apple Watch'
-    },
-    arcade: {
-      name: 'Apple Arcade',
-      services: ['Apple Arcade'],
-      price: 6.99,
-      familyShare: 5,
-      source: 'apple'
-    },
-    icloud50: {
-      name: 'iCloud+ 50GB',
-      services: ['iCloud 50GB'],
-      price: 0.99,
-      familyShare: 5,
-      source: 'apple'
-    },
-    icloud200: {
-      name: 'iCloud+ 200GB',
-      services: ['iCloud 200GB'],
-      price: 2.99,
-      familyShare: 5,
-      source: 'apple'
-    },
-    icloud2tb: {
-      name: 'iCloud+ 2TB',
-      services: ['iCloud 2TB'],
-      price: 9.99,
-      familyShare: 5,
-      source: 'apple'
-    },
-    icloud6tb: {
-      name: 'iCloud+ 6TB',
-      services: ['iCloud 6TB'],
-      price: 29.99,
-      familyShare: 5,
-      source: 'apple'
-    },
-    icloud12tb: {
-      name: 'iCloud+ 12TB',
-      services: ['iCloud 12TB'],
-      price: 59.99,
-      familyShare: 5,
-      source: 'apple'
-    }
-  };
-
-  const taxRates = {
-    US: 0.08,
-    CA: 0.13,
-    AU: 0.10,
-    EU: 0.20,
-    GB: 0.20,
-    IN: 0.18,
-    MX: 0.16,
-    JP: 0.10,
-    CN: 0.13
-  };
-
-  const currencySymbols = {
-    USD: '$',
-    CAD: 'C$',
-    AUD: 'A$',
-    EUR: '€',
-    GBP: '£',
-    INR: '₹',
-    MXN: 'MX$',
-    JPY: '¥',
-    CNY: '¥'
-  };
-
-  const devicePromotions = {
-    iphone: { service: 'Apple TV+', months: 3 },
-    ipad: { service: 'Apple TV+', months: 3 },
-    mac: { service: 'Apple TV+', months: 3 },
-    appleWatch: { service: 'Apple Fitness+', months: 3 }
-  };
+  const hasSelectedAnyService = useMemo(
+    () => Object.values(formData.services).some((value) => value),
+    [formData.services]
+  );
 
   const updateFormData = (field, value) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [field]: value
     }));
   };
 
   const toggleService = (service) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       services: {
         ...prev.services,
@@ -241,285 +86,79 @@ const AppleServicesOptimizer = () => {
     }));
   };
 
-  const calculateOptimalPlans = () => {
-    const wantedServices = [];
-    if (formData.services.music) wantedServices.push('Apple Music');
-    if (formData.services.tv) wantedServices.push('Apple TV+');
-    if (formData.services.news) wantedServices.push('Apple News+');
-    if (formData.services.fitness) wantedServices.push('Apple Fitness+');
-    if (formData.services.arcade) wantedServices.push('Apple Arcade');
-    if (formData.services.icloud) wantedServices.push(`iCloud ${formData.icloudStorage}`);
-
-    const plans = [];
-
-    // Check eligibility for each plan
-    Object.entries(serviceData).forEach(([key, plan]) => {
-      let eligible = true;
-      let reasons = [];
-
-      // Check carrier eligibility
-      if (plan.source === 'verizon' && formData.carrier !== 'verizon') {
-        eligible = false;
-      }
-      if (plan.source === 'tmobile' && formData.carrier !== 'tmobile') {
-        eligible = false;
-      }
-
-      // Check student eligibility
-      if (key === 'musicStudent' && !formData.isStudent) {
-        eligible = false;
-      }
-
-      // Check family size compatibility
-      if (plan.familyShare < formData.familySize && formData.familySize > 1) {
-        eligible = false;
-        reasons.push(`Only supports ${plan.familyShare} user(s), you need ${formData.familySize}`);
-      }
-
-      // Check device requirements
-      if (plan.deviceRequired === 'Apple Watch' && !formData.recentDevices.includes('appleWatch')) {
-        reasons.push('Requires Apple Watch');
-      }
-
-      if (eligible) {
-        plans.push({ key, ...plan, reasons });
-      }
-    });
-
-    // Generate combinations
-    const combinations = [];
-
-    // Try each Apple One bundle first
-    const appleOneBundles = plans.filter(p => p.name.includes('Apple One'));
-    appleOneBundles.forEach(bundle => {
-      const bundleServices = bundle.services;
-      const coveredServices = wantedServices.filter(ws => {
-        return bundleServices.some(bs => {
-          if (ws.startsWith('iCloud')) {
-            const wantedSize = ws.replace('iCloud ', '');
-            const bundleSize = bs.replace('iCloud ', '');
-            return compareStorage(bundleSize, wantedSize) >= 0;
-          }
-          return bs.includes(ws);
-        });
-      });
-
-      const uncoveredServices = wantedServices.filter(ws => !coveredServices.includes(ws));
-      
-      let totalCost = bundle.price;
-      const components = [{ ...bundle }];
-
-      // Add missing services
-      uncoveredServices.forEach(service => {
-        if (service.startsWith('iCloud')) {
-          const neededStorage = service.replace('iCloud ', '');
-          const bundleStorage = bundleServices.find(s => s.startsWith('iCloud'))?.replace('iCloud ', '') || '0GB';
-          
-          if (compareStorage(neededStorage, bundleStorage) > 0) {
-            const additionalStorage = getAdditionalStorage(bundleStorage, neededStorage);
-            if (additionalStorage) {
-              const storagePlan = plans.find(p => p.services.includes(`iCloud ${additionalStorage}`));
-              if (storagePlan) {
-                totalCost += storagePlan.price;
-                components.push(storagePlan);
-              }
-            }
-          }
-        } else if (service === 'Apple Music') {
-          const musicPlan = plans.find(p => p.name.includes('Music') && p.familyShare >= formData.familySize);
-          if (musicPlan) {
-            totalCost += musicPlan.price;
-            components.push(musicPlan);
-          }
-        } else if (service === 'Apple TV+') {
-          const tvPlan = plans.find(p => p.name === 'Apple TV+');
-          if (tvPlan) {
-            totalCost += tvPlan.price;
-            components.push(tvPlan);
-          }
-        } else if (service === 'Apple News+') {
-          const newsPlan = plans.find(p => p.name === 'Apple News+');
-          if (newsPlan) {
-            totalCost += newsPlan.price;
-            components.push(newsPlan);
-          }
-        } else if (service === 'Apple Fitness+') {
-          const fitnessPlan = plans.find(p => p.name === 'Apple Fitness+');
-          if (fitnessPlan) {
-            totalCost += fitnessPlan.price;
-            components.push(fitnessPlan);
-          }
-        } else if (service === 'Apple Arcade') {
-          const arcadePlan = plans.find(p => p.name === 'Apple Arcade');
-          if (arcadePlan) {
-            totalCost += arcadePlan.price;
-            components.push(arcadePlan);
-          }
-        }
-      });
-
-      combinations.push({
-        name: `${bundle.name} + Add-ons`,
-        components,
-        totalCost,
-        coveredServices: [...new Set([...coveredServices, ...uncoveredServices])],
-        type: 'bundle'
-      });
-    });
-
-    // Try individual services only
-    let individualCost = 0;
-    const individualComponents = [];
-
-    wantedServices.forEach(service => {
-      if (service.startsWith('iCloud')) {
-        const storage = service.replace('iCloud ', '');
-        const storagePlan = plans.find(p => p.services.includes(service) && p.source === 'apple');
-        if (storagePlan) {
-          individualCost += storagePlan.price;
-          individualComponents.push(storagePlan);
-        }
-      } else if (service === 'Apple Music') {
-        const musicPlan = formData.isStudent 
-          ? plans.find(p => p.name === 'Apple Music Student')
-          : formData.familySize > 1
-            ? plans.find(p => p.name === 'Apple Music Family')
-            : plans.find(p => p.name === 'Apple Music Individual');
-        if (musicPlan) {
-          individualCost += musicPlan.price;
-          individualComponents.push(musicPlan);
-        }
-      } else if (service === 'Apple TV+') {
-        const tvPlan = plans.find(p => p.name === 'Apple TV+ (Annual)') || plans.find(p => p.name === 'Apple TV+');
-        if (tvPlan) {
-          individualCost += tvPlan.price;
-          individualComponents.push(tvPlan);
-        }
-      } else if (service === 'Apple News+') {
-        const newsPlan = plans.find(p => p.name === 'Apple News+');
-        if (newsPlan) {
-          individualCost += newsPlan.price;
-          individualComponents.push(newsPlan);
-        }
-      } else if (service === 'Apple Fitness+') {
-        const fitnessPlan = plans.find(p => p.name === 'Apple Fitness+ (Annual)') || plans.find(p => p.name === 'Apple Fitness+');
-        if (fitnessPlan) {
-          individualCost += fitnessPlan.price;
-          individualComponents.push(fitnessPlan);
-        }
-      } else if (service === 'Apple Arcade') {
-        const arcadePlan = plans.find(p => p.name === 'Apple Arcade');
-        if (arcadePlan) {
-          individualCost += arcadePlan.price;
-          individualComponents.push(arcadePlan);
-        }
-      }
-    });
-
-    if (individualComponents.length > 0) {
-      combinations.push({
-        name: 'Individual Services',
-        components: individualComponents,
-        totalCost: individualCost,
-        coveredServices: wantedServices,
-        type: 'individual'
-      });
-    }
-
-    // Apply promotions
-    formData.recentDevices.forEach(device => {
-      const promo = devicePromotions[device];
-      if (promo) {
-        combinations.forEach(combo => {
-          combo.promotions = combo.promotions || [];
-          combo.promotions.push(`${promo.months} months free ${promo.service}`);
-        });
-      }
-    });
-
-    // Apply taxes
-    const taxRate = taxRates[formData.country] || 0;
-    combinations.forEach(combo => {
-      combo.subtotal = combo.totalCost;
-      combo.tax = combo.totalCost * taxRate;
-      combo.totalWithTax = combo.totalCost + combo.tax;
-    });
-
-    // Sort by total cost
-    combinations.sort((a, b) => a.totalWithTax - b.totalWithTax);
-
-    return combinations.slice(0, 5);
+  const handleCountryChange = (country) => {
+    updateFormData('country', country);
+    updateFormData('currency', getDefaultCurrencyForCountry(country));
   };
 
-  const compareStorage = (storage1, storage2) => {
-    const getValue = (str) => {
-      if (str.includes('TB')) return parseFloat(str) * 1024;
-      return parseFloat(str);
-    };
-    return getValue(storage1) - getValue(storage2);
-  };
-
-  const getAdditionalStorage = (current, needed) => {
-    const storageOptions = ['50GB', '200GB', '2TB', '6TB', '12TB'];
-    const currentIndex = storageOptions.findIndex(s => s === current);
-    const neededIndex = storageOptions.findIndex(s => s === needed);
-    
-    if (neededIndex > currentIndex) {
-      return storageOptions[neededIndex];
-    }
-    return null;
+  const formatMoney = (amount, currency = formData.currency) => {
+    const symbol = CURRENCY_SYMBOLS[currency] || '$';
+    return `${symbol}${Number(amount).toFixed(2)}`;
   };
 
   const handleCalculate = () => {
-    const optimal = calculateOptimalPlans();
-    setResults(optimal);
+    const recommendations = buildRecommendations(formData);
+    setResults(recommendations);
     setStep(6);
   };
 
-  const formatCurrency = (amount) => {
-    const symbol = currencySymbols[formData.currency];
-    return `${symbol}${amount.toFixed(2)}`;
-  };
-
   const saveResults = () => {
-    const resultsData = {
-      timestamp: new Date().toISOString(),
-      formData,
-      results
-    };
-    localStorage.setItem('appleServicesResults', JSON.stringify(resultsData));
+    localStorage.setItem(
+      'appleServicesResults',
+      JSON.stringify({
+        timestamp: new Date().toISOString(),
+        formData,
+        results
+      })
+    );
     alert('Results saved successfully!');
   };
 
   const shareResults = () => {
     if (!results || results.length === 0) return;
-    
+
     const bestOption = results[0];
-    const shareText = `Apple Services Optimizer Results:
-Best Option: ${bestOption.name}
-Monthly Cost: ${formatCurrency(bestOption.totalWithTax)}
-Services: ${bestOption.coveredServices.join(', ')}`;
-    
+    const shareText = `Apple Services Optimizer Results:\nBest Option: ${bestOption.name}\nMonthly Cost: ${formatMoney(bestOption.totalWithTax, bestOption.currency)}\nOverbuy: ${bestOption.overbuyLabel}`;
+
     navigator.clipboard.writeText(shareText);
     alert('Results copied to clipboard!');
+  };
+
+  const addCurrentSubscription = () => {
+    const parsedPrice = Number(currentSubDraft.price);
+
+    if (!currentSubDraft.name.trim() || Number.isNaN(parsedPrice) || parsedPrice <= 0) {
+      return;
+    }
+
+    updateFormData('currentSubscriptions', [
+      ...formData.currentSubscriptions,
+      {
+        name: currentSubDraft.name.trim(),
+        price: parsedPrice
+      }
+    ]);
+
+    setCurrentSubDraft({ name: '', price: '' });
+  };
+
+  const removeCurrentSubscription = (name) => {
+    updateFormData(
+      'currentSubscriptions',
+      formData.currentSubscriptions.filter((sub) => sub.name !== name)
+    );
   };
 
   const renderStep1 = () => (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">Which Apple services do you want?</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {[
-          { key: 'music', label: 'Apple Music', desc: 'Stream millions of songs' },
-          { key: 'tv', label: 'Apple TV+', desc: 'Original shows and movies' },
-          { key: 'news', label: 'Apple News+', desc: 'Magazines and newspapers' },
-          { key: 'fitness', label: 'Apple Fitness+', desc: 'Workout videos (requires Apple Watch)' },
-          { key: 'arcade', label: 'Apple Arcade', desc: 'Gaming subscription' },
-          { key: 'icloud', label: 'iCloud+', desc: 'Cloud storage' }
-        ].map(service => (
-          <div
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {SERVICE_OPTIONS.map((service) => (
+          <button
             key={service.key}
+            type="button"
             onClick={() => toggleService(service.key)}
-            className={`p-4 border-2 rounded-lg cursor-pointer transition ${
+            className={`rounded-lg border-2 p-4 text-left transition ${
               formData.services[service.key]
                 ? 'border-blue-500 bg-blue-50'
                 : 'border-gray-200 hover:border-gray-300'
@@ -530,29 +169,27 @@ Services: ${bestOption.coveredServices.join(', ')}`;
                 <h3 className="font-semibold text-gray-800">{service.label}</h3>
                 <p className="text-sm text-gray-600">{service.desc}</p>
               </div>
-              {formData.services[service.key] && (
-                <Check className="w-5 h-5 text-blue-500" />
-              )}
+              {formData.services[service.key] && <Check className="h-5 w-5 text-blue-500" />}
             </div>
-          </div>
+          </button>
         ))}
       </div>
 
       {formData.services.icloud && (
-        <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+        <div>
+          <label className="mb-2 block text-sm font-medium text-gray-700">
             How much iCloud storage do you need?
           </label>
           <select
             value={formData.icloudStorage}
-            onChange={(e) => updateFormData('icloudStorage', e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-lg"
+            onChange={(event) => updateFormData('icloudStorage', event.target.value)}
+            className="w-full rounded-lg border border-gray-300 p-2"
           >
-            <option value="50GB">50GB</option>
-            <option value="200GB">200GB</option>
-            <option value="2TB">2TB</option>
-            <option value="6TB">6TB</option>
-            <option value="12TB">12TB</option>
+            {STORAGE_TIERS.map((tier) => (
+              <option key={tier} value={tier}>
+                {tier}
+              </option>
+            ))}
           </select>
         </div>
       )}
@@ -563,15 +200,16 @@ Services: ${bestOption.coveredServices.join(', ')}`;
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">Family & Sharing</h2>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="mb-2 block text-sm font-medium text-gray-700">
           How many people in your Apple Family?
         </label>
         <div className="flex gap-2">
-          {[1, 2, 3, 4, 5, 6].map(num => (
+          {[1, 2, 3, 4, 5, 6].map((num) => (
             <button
               key={num}
+              type="button"
               onClick={() => updateFormData('familySize', num)}
-              className={`px-4 py-2 rounded-lg font-medium transition ${
+              className={`rounded-lg px-4 py-2 font-medium transition ${
                 formData.familySize === num
                   ? 'bg-blue-500 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -582,8 +220,8 @@ Services: ${bestOption.coveredServices.join(', ')}`;
           ))}
         </div>
         <p className="mt-2 text-sm text-gray-600">
-          <Users className="inline w-4 h-4 mr-1" />
-          Apple Family Sharing allows up to 6 people to share subscriptions
+          <Users className="mr-1 inline h-4 w-4" />
+          Apple Family Sharing allows up to 6 people to share subscriptions.
         </p>
       </div>
     </div>
@@ -592,15 +230,13 @@ Services: ${bestOption.coveredServices.join(', ')}`;
   const renderStep3 = () => (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">Eligibility & Discounts</h2>
-      
+
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Mobile Carrier
-        </label>
+        <label className="mb-2 block text-sm font-medium text-gray-700">Mobile Carrier</label>
         <select
           value={formData.carrier}
-          onChange={(e) => updateFormData('carrier', e.target.value)}
-          className="w-full p-2 border border-gray-300 rounded-lg"
+          onChange={(event) => updateFormData('carrier', event.target.value)}
+          className="w-full rounded-lg border border-gray-300 p-2"
         >
           <option value="none">No carrier discount</option>
           <option value="verizon">Verizon</option>
@@ -610,40 +246,35 @@ Services: ${bestOption.coveredServices.join(', ')}`;
 
       <div className="flex items-center gap-2">
         <input
-          type="checkbox"
           id="student"
+          type="checkbox"
           checked={formData.isStudent}
-          onChange={(e) => updateFormData('isStudent', e.target.checked)}
-          className="w-4 h-4"
+          onChange={(event) => updateFormData('isStudent', event.target.checked)}
+          className="h-4 w-4"
         />
         <label htmlFor="student" className="text-sm font-medium text-gray-700">
-          I'm a student (eligible for student discount)
+          I&apos;m a student (eligible for student discount)
         </label>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="mb-2 block text-sm font-medium text-gray-700">
           Recently purchased Apple devices?
         </label>
         <div className="space-y-2">
-          {[
-            { key: 'iphone', label: 'iPhone (3 months free Apple TV+)' },
-            { key: 'ipad', label: 'iPad (3 months free Apple TV+)' },
-            { key: 'mac', label: 'Mac (3 months free Apple TV+)' },
-            { key: 'appleWatch', label: 'Apple Watch (3 months free Fitness+)' }
-          ].map(device => (
+          {DEVICE_OPTIONS.map((device) => (
             <div key={device.key} className="flex items-center gap-2">
               <input
-                type="checkbox"
                 id={device.key}
+                type="checkbox"
                 checked={formData.recentDevices.includes(device.key)}
-                onChange={(e) => {
-                  const newDevices = e.target.checked
+                onChange={(event) => {
+                  const nextDevices = event.target.checked
                     ? [...formData.recentDevices, device.key]
-                    : formData.recentDevices.filter(d => d !== device.key);
-                  updateFormData('recentDevices', newDevices);
+                    : formData.recentDevices.filter((item) => item !== device.key);
+                  updateFormData('recentDevices', nextDevices);
                 }}
-                className="w-4 h-4"
+                className="h-4 w-4"
               />
               <label htmlFor={device.key} className="text-sm text-gray-700">
                 {device.label}
@@ -655,109 +286,118 @@ Services: ${bestOption.coveredServices.join(', ')}`;
 
       <div className="flex items-center gap-2">
         <input
-          type="checkbox"
           id="corporate"
+          type="checkbox"
           checked={formData.hasCorporateDiscount}
-          onChange={(e) => updateFormData('hasCorporateDiscount', e.target.checked)}
-          className="w-4 h-4"
+          onChange={(event) => updateFormData('hasCorporateDiscount', event.target.checked)}
+          className="h-4 w-4"
         />
         <label htmlFor="corporate" className="text-sm font-medium text-gray-700">
-          I have a corporate/business discount
+          I have a corporate/business discount (5% on Apple direct services)
         </label>
       </div>
     </div>
   );
 
-  const renderStep4 = () => (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">Location & Currency</h2>
-      
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Country/Region
-        </label>
-        <select
-          value={formData.country}
-          onChange={(e) => updateFormData('country', e.target.value)}
-          className="w-full p-2 border border-gray-300 rounded-lg"
-        >
-          <option value="US">United States</option>
-          <option value="CA">Canada</option>
-          <option value="AU">Australia</option>
-          <option value="EU">European Union</option>
-          <option value="GB">United Kingdom</option>
-          <option value="IN">India</option>
-          <option value="MX">Mexico</option>
-          <option value="JP">Japan</option>
-          <option value="CN">China</option>
-        </select>
-        <p className="mt-1 text-sm text-gray-600">
-          Tax rate: {(taxRates[formData.country] * 100).toFixed(0)}%
-        </p>
-      </div>
+  const renderStep4 = () => {
+    const tax = getRegionTax(formData.country);
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Currency
-        </label>
-        <select
-          value={formData.currency}
-          onChange={(e) => updateFormData('currency', e.target.value)}
-          className="w-full p-2 border border-gray-300 rounded-lg"
-        >
-          <option value="USD">USD - US Dollar</option>
-          <option value="CAD">CAD - Canadian Dollar</option>
-          <option value="AUD">AUD - Australian Dollar</option>
-          <option value="EUR">EUR - Euro</option>
-          <option value="GBP">GBP - British Pound</option>
-          <option value="INR">INR - Indian Rupee</option>
-          <option value="MXN">MXN - Mexican Peso</option>
-          <option value="JPY">JPY - Japanese Yen</option>
-          <option value="CNY">CNY - Chinese Yuan</option>
-        </select>
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-bold text-gray-800">Location & Currency</h2>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-gray-700">Country/Region</label>
+          <select
+            value={formData.country}
+            onChange={(event) => handleCountryChange(event.target.value)}
+            className="w-full rounded-lg border border-gray-300 p-2"
+          >
+            {SUPPORTED_COUNTRIES.map((country) => (
+              <option key={country.code} value={country.code}>
+                {country.name}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-sm text-gray-600">
+            Tax model: {tax.mode} ({(tax.rate * 100).toFixed(0)}%)
+          </p>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-gray-700">Currency</label>
+          <select
+            value={formData.currency}
+            onChange={(event) => updateFormData('currency', event.target.value)}
+            className="w-full rounded-lg border border-gray-300 p-2"
+          >
+            {SUPPORTED_CURRENCIES.map((currency) => (
+              <option key={currency} value={currency}>
+                {currency}
+              </option>
+            ))}
+          </select>
+          {formData.currency !== REGION_CONFIG[formData.country].defaultCurrency && (
+            <p className="mt-1 text-sm text-orange-600">
+              Display currency differs from regional default. Prices are converted for display.
+            </p>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderStep5 = () => (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">Current Subscriptions (Optional)</h2>
-      <p className="text-gray-600">
-        Tell us what you currently pay to see how much you could save.
-      </p>
-      
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <AlertCircle className="inline w-5 h-5 text-blue-600 mr-2" />
-        <span className="text-sm text-blue-800">
-          This step is optional. Skip if you want to see recommendations only.
-        </span>
+      <p className="text-gray-600">Add your current monthly subscriptions to compare savings.</p>
+
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+        <AlertCircle className="mr-2 inline h-5 w-5 text-blue-600" />
+        <span className="text-sm text-blue-800">This step is optional. Skip if needed.</span>
       </div>
 
-      <div className="space-y-3">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="Service name (e.g., Apple Music)"
-            className="flex-1 p-2 border border-gray-300 rounded-lg"
-          />
-          <input
-            type="number"
-            placeholder="Price"
-            className="w-24 p-2 border border-gray-300 rounded-lg"
-          />
-          <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
-            Add
-          </button>
-        </div>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={currentSubDraft.name}
+          onChange={(event) => setCurrentSubDraft((prev) => ({ ...prev, name: event.target.value }))}
+          placeholder="Service name"
+          className="flex-1 rounded-lg border border-gray-300 p-2"
+        />
+        <input
+          type="number"
+          step="0.01"
+          value={currentSubDraft.price}
+          onChange={(event) => setCurrentSubDraft((prev) => ({ ...prev, price: event.target.value }))}
+          placeholder="Price"
+          className="w-28 rounded-lg border border-gray-300 p-2"
+        />
+        <button
+          type="button"
+          onClick={addCurrentSubscription}
+          className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
+        >
+          Add
+        </button>
       </div>
 
       {formData.currentSubscriptions.length > 0 && (
         <div className="space-y-2">
           <h3 className="font-medium text-gray-700">Your Current Setup:</h3>
-          {formData.currentSubscriptions.map((sub, idx) => (
-            <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+          {formData.currentSubscriptions.map((sub) => (
+            <div key={`${sub.name}-${sub.price}`} className="flex items-center justify-between rounded bg-gray-50 p-2">
               <span>{sub.name}</span>
-              <span className="font-medium">{formatCurrency(sub.price)}/mo</span>
+              <div className="flex items-center gap-2">
+                <span className="font-medium">{formatMoney(sub.price)}/mo</span>
+                <button
+                  type="button"
+                  onClick={() => removeCurrentSubscription(sub.name)}
+                  className="rounded p-1 text-gray-500 hover:bg-gray-200"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -768,9 +408,9 @@ Services: ${bestOption.coveredServices.join(', ')}`;
   const renderResults = () => {
     if (!results || results.length === 0) {
       return (
-        <div className="text-center py-12">
-          <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-          <p className="text-gray-600">No suitable plans found. Please adjust your selections.</p>
+        <div className="py-12 text-center">
+          <AlertCircle className="mx-auto mb-4 h-12 w-12 text-yellow-500" />
+          <p className="text-gray-600">No suitable plans found. Adjust your selections.</p>
         </div>
       );
     }
@@ -782,71 +422,93 @@ Services: ${bestOption.coveredServices.join(', ')}`;
 
     return (
       <div className="space-y-8">
-        <div className="flex justify-between items-start">
+        <div className="flex items-start justify-between">
           <h2 className="text-2xl font-bold text-gray-800">Your Optimal Plan</h2>
           <div className="flex gap-2">
             <button
+              type="button"
               onClick={saveResults}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+              className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-gray-700 transition hover:bg-gray-200"
             >
-              <Save className="w-4 h-4" />
+              <Save className="h-4 w-4" />
               Save
             </button>
             <button
+              type="button"
               onClick={shareResults}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
+              className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-white transition hover:bg-blue-600"
             >
-              <Share2 className="w-4 h-4" />
+              <Share2 className="h-4 w-4" />
               Share
             </button>
           </div>
         </div>
 
-        {/* Best Option Card */}
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-xl p-6 shadow-lg">
-          <div className="flex items-start justify-between mb-4">
+        <div className="rounded-xl border-2 border-blue-300 bg-gradient-to-br from-blue-50 to-indigo-50 p-6 shadow-lg">
+          <div className="mb-4 flex items-start justify-between">
             <div>
-              <div className="inline-block px-3 py-1 bg-blue-500 text-white text-xs font-semibold rounded-full mb-2">
+              <div className="mb-2 inline-block rounded-full bg-blue-500 px-3 py-1 text-xs font-semibold text-white">
                 BEST VALUE
               </div>
               <h3 className="text-2xl font-bold text-gray-800">{bestOption.name}</h3>
+              <p className="mt-1 text-sm text-gray-600">{bestOption.overbuyLabel}</p>
             </div>
             <div className="text-right">
               <div className="text-3xl font-bold text-blue-600">
-                {formatCurrency(bestOption.totalWithTax)}
+                {formatMoney(bestOption.totalWithTax, bestOption.currency)}
               </div>
-              <div className="text-sm text-gray-600">per month</div>
+              <div className="text-sm text-gray-600">steady-state monthly</div>
+              <div className="text-xs text-green-700">
+                First-year effective: {formatMoney(bestOption.firstYearEffectiveMonthly, bestOption.currency)}
+              </div>
             </div>
           </div>
 
-          <div className="space-y-3 mb-4">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Subtotal:</span>
-              <span className="font-medium">{formatCurrency(bestOption.subtotal)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Tax ({(taxRates[formData.country] * 100).toFixed(0)}%):</span>
-              <span className="font-medium">{formatCurrency(bestOption.tax)}</span>
-            </div>
-            <div className="border-t pt-2 flex justify-between font-semibold">
-              <span>Total Monthly:</span>
-              <span className="text-blue-600">{formatCurrency(bestOption.totalWithTax)}</span>
-            </div>
+          <div className="mb-4 space-y-2 text-sm">
+            {bestOption.taxMode === 'inclusive' ? (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Pre-tax equivalent:</span>
+                  <span>{formatMoney(bestOption.preTax, bestOption.currency)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Included tax ({(bestOption.taxRate * 100).toFixed(0)}%):</span>
+                  <span>{formatMoney(bestOption.tax, bestOption.currency)}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Subtotal:</span>
+                  <span>{formatMoney(bestOption.subtotal, bestOption.currency)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Tax ({(bestOption.taxRate * 100).toFixed(0)}%):</span>
+                  <span>{formatMoney(bestOption.tax, bestOption.currency)}</span>
+                </div>
+              </>
+            )}
+            {bestOption.corporateDiscount > 0 && (
+              <div className="flex justify-between text-green-700">
+                <span>Corporate discount applied:</span>
+                <span>-{formatMoney(bestOption.corporateDiscount, bestOption.currency)}</span>
+              </div>
+            )}
           </div>
 
-          <div className="bg-white rounded-lg p-4 mb-4">
-            <h4 className="font-semibold text-gray-800 mb-3">What's Included:</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {bestOption.components.map((comp, idx) => (
-                <div key={idx} className="flex items-start gap-2">
-                  <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+          <div className="mb-4 rounded-lg bg-white p-4">
+            <h4 className="mb-3 font-semibold text-gray-800">What&apos;s Included</h4>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              {bestOption.components.map((component) => (
+                <div key={component.id} className="flex items-start gap-2">
+                  <Check className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-500" />
                   <div>
-                    <div className="font-medium text-gray-800">{comp.name}</div>
-                    {comp.billingPeriod === 'annual' && (
+                    <div className="font-medium text-gray-800">{component.name}</div>
+                    {component.billingPeriod === 'annual' && (
                       <div className="text-xs text-gray-500">Billed annually</div>
                     )}
-                    {comp.prerequisite && (
-                      <div className="text-xs text-orange-600">{comp.prerequisite}</div>
+                    {component.prerequisite && (
+                      <div className="text-xs text-orange-600">{component.prerequisite}</div>
                     )}
                   </div>
                 </div>
@@ -854,176 +516,104 @@ Services: ${bestOption.coveredServices.join(', ')}`;
             </div>
           </div>
 
-          {bestOption.promotions && bestOption.promotions.length > 0 && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-              <div className="font-semibold text-green-800 mb-1">Available Promotions:</div>
-              {bestOption.promotions.map((promo, idx) => (
-                <div key={idx} className="text-sm text-green-700">• {promo}</div>
+          {bestOption.promotions.length > 0 && (
+            <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+              <div className="mb-1 font-semibold text-green-800">Promotions Used</div>
+              {bestOption.promotions.map((promotion) => (
+                <div key={promotion} className="text-sm text-green-700">
+                  • {promotion}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {bestOption.prerequisiteWarnings.length > 0 && (
+            <div className="mt-3 rounded-lg border border-orange-200 bg-orange-50 p-3">
+              <div className="mb-1 font-semibold text-orange-800">Check prerequisites</div>
+              {bestOption.prerequisiteWarnings.map((warning) => (
+                <div key={warning} className="text-sm text-orange-700">
+                  • {warning}
+                </div>
               ))}
             </div>
           )}
 
           {currentTotal > 0 && (
-            <div className="mt-4 bg-green-100 border border-green-300 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <DollarSign className="w-5 h-5 text-green-600" />
+            <div className="mt-4 rounded-lg border border-green-300 bg-green-100 p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-green-600" />
                 <span className="font-semibold text-green-800">Your Savings</span>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <div className="text-sm text-green-700">Monthly Savings</div>
-                  <div className="text-2xl font-bold text-green-600">
-                    {formatCurrency(monthlySavings)}
-                  </div>
+                  <div className="text-2xl font-bold text-green-600">{formatMoney(monthlySavings)}</div>
                 </div>
                 <div>
                   <div className="text-sm text-green-700">Annual Savings</div>
-                  <div className="text-2xl font-bold text-green-600">
-                    {formatCurrency(annualSavings)}
-                  </div>
+                  <div className="text-2xl font-bold text-green-600">{formatMoney(annualSavings)}</div>
                 </div>
               </div>
             </div>
           )}
-
-          <div className="mt-4">
-            <h4 className="font-semibold text-gray-800 mb-2">Why This Plan?</h4>
-            <ul className="space-y-1 text-sm text-gray-700">
-              {bestOption.type === 'bundle' ? (
-                <>
-                  <li>• Bundles multiple services at a discounted rate</li>
-                  <li>• Covers {bestOption.coveredServices.length} of your requested services</li>
-                  {formData.familySize > 1 && (
-                    <li>• Can be shared with up to {bestOption.components[0].familyShare} family members</li>
-                  )}
-                </>
-              ) : (
-                <>
-                  <li>• Individual services give you maximum flexibility</li>
-                  <li>• Pay only for exactly what you need</li>
-                  <li>• No bundled services you won't use</li>
-                </>
-              )}
-            </ul>
-          </div>
         </div>
 
-        {/* Alternative Options */}
         {results.length > 1 && (
           <div>
-            <h3 className="text-xl font-bold text-gray-800 mb-4">Alternative Options</h3>
+            <h3 className="mb-4 text-xl font-bold text-gray-800">Alternative Options</h3>
             <div className="space-y-4">
-              {results.slice(1).map((option, idx) => (
-                <div key={idx} className="border border-gray-300 rounded-lg p-5 hover:shadow-md transition">
-                  <div className="flex justify-between items-start mb-3">
+              {results.slice(1).map((option) => (
+                <div key={`${option.name}-${option.totalWithTax}`} className="rounded-lg border border-gray-300 p-5 transition hover:shadow-md">
+                  <div className="mb-3 flex items-start justify-between">
                     <div>
                       <h4 className="text-lg font-semibold text-gray-800">{option.name}</h4>
-                      <p className="text-sm text-gray-600">
-                        {option.components.length} component{option.components.length !== 1 ? 's' : ''}
-                      </p>
+                      <p className="text-sm text-gray-600">{option.overbuyLabel}</p>
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-gray-800">
-                        {formatCurrency(option.totalWithTax)}
+                        {formatMoney(option.totalWithTax, option.currency)}
                       </div>
                       <div className="text-xs text-gray-600">per month</div>
-                      <div className="text-sm text-orange-600 mt-1">
-                        +{formatCurrency(option.totalWithTax - bestOption.totalWithTax)} vs best
+                      <div className="mt-1 text-sm text-orange-600">
+                        +{formatMoney(option.totalWithTax - bestOption.totalWithTax, option.currency)} vs best
                       </div>
                     </div>
                   </div>
 
                   <div className="border-t pt-3">
-                    <div className="text-sm font-medium text-gray-700 mb-2">Includes:</div>
+                    <div className="mb-2 text-sm font-medium text-gray-700">Includes:</div>
                     <div className="flex flex-wrap gap-2">
-                      {option.components.map((comp, compIdx) => (
+                      {option.components.map((component) => (
                         <span
-                          key={compIdx}
-                          className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
+                          key={component.id}
+                          className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700"
                         >
-                          {comp.name}
+                          {component.name}
                         </span>
                       ))}
                     </div>
                   </div>
-
-                  {option.type === 'bundle' && (
-                    <div className="mt-3 text-sm text-gray-600">
-                      <strong>Pros:</strong> Bundled discount, simplified billing
-                    </div>
-                  )}
-                  {option.type === 'individual' && (
-                    <div className="mt-3 text-sm text-gray-600">
-                      <strong>Pros:</strong> Maximum flexibility, no unused services
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Comparison Table */}
-        {currentTotal > 0 && (
-          <div>
-            <h3 className="text-xl font-bold text-gray-800 mb-4">Current vs Recommended</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="p-3 text-left border">Aspect</th>
-                    <th className="p-3 text-left border">Your Current Setup</th>
-                    <th className="p-3 text-left border">Our Recommendation</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="p-3 border font-medium">Monthly Cost</td>
-                    <td className="p-3 border">{formatCurrency(currentTotal)}</td>
-                    <td className="p-3 border text-green-600 font-semibold">
-                      {formatCurrency(bestOption.totalWithTax)}
-                    </td>
-                  </tr>
-                  <tr className="bg-gray-50">
-                    <td className="p-3 border font-medium">Annual Cost</td>
-                    <td className="p-3 border">{formatCurrency(currentTotal * 12)}</td>
-                    <td className="p-3 border text-green-600 font-semibold">
-                      {formatCurrency(bestOption.totalWithTax * 12)}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="p-3 border font-medium">Services</td>
-                    <td className="p-3 border">
-                      {formData.currentSubscriptions.map(sub => sub.name).join(', ')}
-                    </td>
-                    <td className="p-3 border">
-                      {bestOption.coveredServices.join(', ')}
-                    </td>
-                  </tr>
-                  <tr className="bg-green-50">
-                    <td className="p-3 border font-medium">Potential Savings</td>
-                    <td className="p-3 border">-</td>
-                    <td className="p-3 border text-green-600 font-bold">
-                      {formatCurrency(monthlySavings)}/mo ({formatCurrency(annualSavings)}/yr)
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="flex gap-4 justify-center pt-4">
+        <div className="flex justify-center gap-4 pt-4">
           <button
-            onClick={() => setStep(1)}
-            className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-medium"
+            type="button"
+            onClick={() => {
+              setResults([]);
+              setStep(1);
+            }}
+            className="rounded-lg bg-gray-200 px-6 py-3 font-medium text-gray-700 transition hover:bg-gray-300"
           >
             Start Over
           </button>
           <button
+            type="button"
             onClick={() => window.print()}
-            className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium"
+            className="rounded-lg bg-blue-500 px-6 py-3 font-medium text-white transition hover:bg-blue-600"
           >
             Print Results
           </button>
@@ -1033,25 +623,21 @@ Services: ${bestOption.coveredServices.join(', ')}`;
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">
-            Apple Services Optimizer
-          </h1>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 px-4 py-8">
+      <div className="mx-auto max-w-4xl">
+        <div className="mb-8 text-center">
+          <h1 className="mb-2 text-4xl font-bold text-gray-800">Apple Services Optimizer</h1>
           <p className="text-gray-600">
-            Find the most cost-effective way to subscribe to your favorite Apple services
+            Find the most cost-effective service mix with tax/currency-aware pricing and overbuy controls.
           </p>
         </div>
 
-        {/* Progress Bar */}
         {step < 6 && (
           <div className="mb-8">
-            <div className="flex justify-between mb-2">
+            <div className="mb-2 flex justify-between">
               {['Services', 'Family', 'Discounts', 'Location', 'Current'].map((label, idx) => (
                 <div
-                  key={idx}
+                  key={label}
                   className={`text-sm font-medium ${
                     step > idx + 1 ? 'text-blue-600' : step === idx + 1 ? 'text-gray-800' : 'text-gray-400'
                   }`}
@@ -1060,7 +646,7 @@ Services: ${bestOption.coveredServices.join(', ')}`;
                 </div>
               ))}
             </div>
-            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div className="h-2 overflow-hidden rounded-full bg-gray-200">
               <div
                 className="h-full bg-blue-500 transition-all duration-300"
                 style={{ width: `${(step / 5) * 100}%` }}
@@ -1069,8 +655,7 @@ Services: ${bestOption.coveredServices.join(', ')}`;
           </div>
         )}
 
-        {/* Main Content Card */}
-        <div className="bg-white rounded-xl shadow-lg p-8">
+        <div className="rounded-xl bg-white p-8 shadow-lg">
           {step === 1 && renderStep1()}
           {step === 2 && renderStep2()}
           {step === 3 && renderStep3()}
@@ -1078,15 +663,15 @@ Services: ${bestOption.coveredServices.join(', ')}`;
           {step === 5 && renderStep5()}
           {step === 6 && renderResults()}
 
-          {/* Navigation Buttons */}
           {step < 6 && (
-            <div className="flex justify-between mt-8 pt-6 border-t">
+            <div className="mt-8 flex justify-between border-t pt-6">
               {step > 1 ? (
                 <button
+                  type="button"
                   onClick={() => setStep(step - 1)}
-                  className="flex items-center gap-2 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-medium"
+                  className="flex items-center gap-2 rounded-lg bg-gray-200 px-6 py-3 font-medium text-gray-700 transition hover:bg-gray-300"
                 >
-                  <ChevronLeft className="w-5 h-5" />
+                  <ChevronLeft className="h-5 w-5" />
                   Back
                 </button>
               ) : (
@@ -1095,30 +680,33 @@ Services: ${bestOption.coveredServices.join(', ')}`;
 
               {step < 5 ? (
                 <button
+                  type="button"
                   onClick={() => setStep(step + 1)}
-                  disabled={step === 1 && !Object.values(formData.services).some(v => v)}
-                  className="flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  disabled={step === 1 && !hasSelectedAnyService}
+                  className="flex items-center gap-2 rounded-lg bg-blue-500 px-6 py-3 font-medium text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-300"
                 >
                   Next
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="h-5 w-5" />
                 </button>
               ) : (
                 <button
+                  type="button"
                   onClick={handleCalculate}
-                  className="flex items-center gap-2 px-8 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition font-medium text-lg"
+                  className="flex items-center gap-2 rounded-lg bg-green-500 px-8 py-3 text-lg font-medium text-white transition hover:bg-green-600"
                 >
                   Calculate Best Plan
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="h-5 w-5" />
                 </button>
               )}
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="text-center mt-8 text-sm text-gray-600">
-          <p>Prices shown are based on current US pricing and may vary by region.</p>
-          <p className="mt-1">Last updated: January 2025</p>
+        <div className="mt-8 text-center text-sm text-gray-600">
+          <p>
+            Regional taxes and conversions are approximations for recommendation purposes.
+          </p>
+          <p className="mt-1">Last updated: February 27, 2026</p>
         </div>
       </div>
     </div>
