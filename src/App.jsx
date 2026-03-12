@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import {
   AlertCircle,
   Check,
