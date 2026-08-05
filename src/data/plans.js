@@ -34,7 +34,7 @@ export const PLAN_CATALOG = [
     id: 'apple-one-family',
     name: 'Apple One Family',
     source: 'apple',
-    familyShare: 5,
+    familyShare: 6,
     price: price(25.95),
     includes: [
       { serviceId: SERVICE_IDS.music },
@@ -48,7 +48,7 @@ export const PLAN_CATALOG = [
     id: 'apple-one-premier',
     name: 'Apple One Premier',
     source: 'apple',
-    familyShare: 5,
+    familyShare: 6,
     price: price(37.95),
     includes: [
       { serviceId: SERVICE_IDS.music },
@@ -79,7 +79,7 @@ export const PLAN_CATALOG = [
     id: 'apple-one-family-verizon',
     name: 'Apple One Family (Verizon)',
     source: 'verizon',
-    familyShare: 5,
+    familyShare: 6,
     price: price(20.0),
     prerequisite: 'Requires myPlan',
     includes: [
@@ -112,7 +112,7 @@ export const PLAN_CATALOG = [
     id: 'music-family',
     name: 'Apple Music Family',
     source: 'apple',
-    familyShare: 5,
+    familyShare: 6,
     price: price(16.99),
     includes: [{ serviceId: SERVICE_IDS.music }]
   },
@@ -129,7 +129,7 @@ export const PLAN_CATALOG = [
     id: 'music-family-verizon',
     name: 'Apple Music Family (Verizon)',
     source: 'verizon',
-    familyShare: 5,
+    familyShare: 6,
     price: price(10.0),
     prerequisite: 'Requires myPlan',
     includes: [{ serviceId: SERVICE_IDS.music }]
@@ -138,7 +138,7 @@ export const PLAN_CATALOG = [
     id: 'tv-monthly',
     name: 'Apple TV+',
     source: 'apple',
-    familyShare: 5,
+    familyShare: 6,
     price: price(12.99),
     includes: [{ serviceId: SERVICE_IDS.tv }]
   },
@@ -146,7 +146,7 @@ export const PLAN_CATALOG = [
     id: 'tv-annual',
     name: 'Apple TV+ (Annual)',
     source: 'apple',
-    familyShare: 5,
+    familyShare: 6,
     price: price(99 / 12, 99),
     billingPeriod: 'annual',
     includes: [{ serviceId: SERVICE_IDS.tv }]
@@ -155,7 +155,7 @@ export const PLAN_CATALOG = [
     id: 'tv-tmobile',
     name: 'Apple TV+ (T-Mobile)',
     source: 'tmobile',
-    familyShare: 5,
+    familyShare: 6,
     price: price(3.0),
     prerequisite: 'Requires Better Value or Experience Beyond plan',
     includes: [{ serviceId: SERVICE_IDS.tv }]
@@ -164,7 +164,7 @@ export const PLAN_CATALOG = [
     id: 'news-plus',
     name: 'Apple News+',
     source: 'apple',
-    familyShare: 5,
+    familyShare: 6,
     price: price(12.99),
     includes: [{ serviceId: SERVICE_IDS.news }]
   },
@@ -172,7 +172,7 @@ export const PLAN_CATALOG = [
     id: 'fitness-monthly',
     name: 'Apple Fitness+',
     source: 'apple',
-    familyShare: 5,
+    familyShare: 6,
     price: price(9.99),
     deviceRequired: 'Apple Watch',
     includes: [{ serviceId: SERVICE_IDS.fitness }]
@@ -181,7 +181,7 @@ export const PLAN_CATALOG = [
     id: 'fitness-annual',
     name: 'Apple Fitness+ (Annual)',
     source: 'apple',
-    familyShare: 5,
+    familyShare: 6,
     price: price(79.99 / 12, 79.99),
     billingPeriod: 'annual',
     deviceRequired: 'Apple Watch',
@@ -191,7 +191,7 @@ export const PLAN_CATALOG = [
     id: 'arcade',
     name: 'Apple Arcade',
     source: 'apple',
-    familyShare: 5,
+    familyShare: 6,
     price: price(6.99),
     includes: [{ serviceId: SERVICE_IDS.arcade }]
   },
@@ -199,7 +199,7 @@ export const PLAN_CATALOG = [
     id: 'icloud-50',
     name: 'iCloud+ 50GB',
     source: 'apple',
-    familyShare: 5,
+    familyShare: 6,
     price: price(0.99),
     includes: [{ serviceId: SERVICE_IDS.icloud, storageTier: '50GB' }]
   },
@@ -207,7 +207,7 @@ export const PLAN_CATALOG = [
     id: 'icloud-200',
     name: 'iCloud+ 200GB',
     source: 'apple',
-    familyShare: 5,
+    familyShare: 6,
     price: price(2.99),
     includes: [{ serviceId: SERVICE_IDS.icloud, storageTier: '200GB' }]
   },
@@ -215,7 +215,7 @@ export const PLAN_CATALOG = [
     id: 'icloud-2tb',
     name: 'iCloud+ 2TB',
     source: 'apple',
-    familyShare: 5,
+    familyShare: 6,
     price: price(9.99),
     includes: [{ serviceId: SERVICE_IDS.icloud, storageTier: '2TB' }]
   },
@@ -223,7 +223,7 @@ export const PLAN_CATALOG = [
     id: 'icloud-6tb',
     name: 'iCloud+ 6TB',
     source: 'apple',
-    familyShare: 5,
+    familyShare: 6,
     price: price(29.99),
     includes: [{ serviceId: SERVICE_IDS.icloud, storageTier: '6TB' }]
   },
@@ -231,7 +231,7 @@ export const PLAN_CATALOG = [
     id: 'icloud-12tb',
     name: 'iCloud+ 12TB',
     source: 'apple',
-    familyShare: 5,
+    familyShare: 6,
     price: price(59.99),
     includes: [{ serviceId: SERVICE_IDS.icloud, storageTier: '12TB' }]
   }

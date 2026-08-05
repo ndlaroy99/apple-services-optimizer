@@ -8,6 +8,8 @@ const fromCents = (amount) => amount / 100;
 
 const hasService = (plan, serviceId) => plan.includes.some((item) => item.serviceId === serviceId);
 
+const hasAppleWatch = (formData) => formData.recentDevices.includes('appleWatch');
+
 const getStorageTierIndex = (storageTier) => STORAGE_TIERS.findIndex((tier) => tier === storageTier);
 
 const getRequiredServices = (formData) => {
@@ -102,13 +104,28 @@ const serviceLabel = (serviceId) => {
   return labels[serviceId] || serviceId;
 };
 
+const getStandaloneMonthlyCents = (serviceId, formData) => {
+  const cheapestStandalone = PLAN_CATALOG.filter(
+    (plan) =>
+      !plan.bundle &&
+      isPlanEligible(plan, formData) &&
+      plan.includes.length === 1 &&
+      plan.includes[0].serviceId === serviceId
+  ).reduce((cheapest, current) => {
+    if (!cheapest) return current;
+    return current.price.monthly < cheapest.price.monthly ? current : cheapest;
+  }, null);
+
+  return cheapestStandalone ? toCents(cheapestStandalone.price.monthly) : null;
+};
+
 const getPromotionCreditCents = (combo, formData) => {
   const comboServices = new Set();
   combo.forEach((plan) => {
     plan.includes.forEach((item) => comboServices.add(item.serviceId));
   });
 
-  let creditCents = 0;
+  const creditsByService = {};
 
   formData.recentDevices.forEach((device) => {
     const promo = DEVICE_PROMOTIONS[device];
@@ -127,10 +144,20 @@ const getPromotionCreditCents = (combo, formData) => {
       return;
     }
 
-    creditCents += toCents(cheapestPlan.price.monthly * promo.monthsFree);
+    let monthlyCents = toCents(cheapestPlan.price.monthly);
+
+    if (cheapestPlan.bundle) {
+      const standaloneMonthlyCents = getStandaloneMonthlyCents(promo.serviceId, formData);
+      if (standaloneMonthlyCents !== null) {
+        monthlyCents = Math.min(monthlyCents, standaloneMonthlyCents);
+      }
+    }
+
+    const creditCents = monthlyCents * promo.monthsFree;
+    creditsByService[promo.serviceId] = Math.max(creditsByService[promo.serviceId] || 0, creditCents);
   });
 
-  return creditCents;
+  return Object.values(creditsByService).reduce((sum, creditCents) => sum + creditCents, 0);
 };
 
 const summarizePromotions = (combo, formData) => {
@@ -364,7 +391,16 @@ export const buildRecommendations = (formData) => {
     const yearlyCostWithTaxCents = tax.totalWithTaxCents * 12;
     const firstYearEffectiveCents = Math.max(0, yearlyCostWithTaxCents - promoCreditCents);
 
-    const missingPrereqCount = combo.filter((plan) => Boolean(plan.prerequisite)).length;
+    const planPrereqWarnings = combo
+      .filter((plan) => Boolean(plan.prerequisite))
+      .map((plan) => `${plan.name}: ${plan.prerequisite}`);
+
+    const fitnessRequiresWatch =
+      !hasAppleWatch(formData) &&
+      combo.some((plan) => plan.includes.some((item) => item.serviceId === SERVICE_IDS.fitness));
+
+    const missingPrereqCount =
+      combo.filter((plan) => Boolean(plan.prerequisite)).length + (fitnessRequiresWatch ? 1 : 0);
 
     scored.push({
       name: getComboName(combo),
@@ -376,9 +412,10 @@ export const buildRecommendations = (formData) => {
         coverage.overbuyCount === 0
           ? 'No paid extras'
           : `${coverage.overbuyCount} extra paid service${coverage.overbuyCount > 1 ? 's' : ''}`,
-      prerequisiteWarnings: combo
-        .filter((plan) => Boolean(plan.prerequisite))
-        .map((plan) => `${plan.name}: ${plan.prerequisite}`),
+      prerequisiteWarnings: [
+        ...planPrereqWarnings,
+        ...(fitnessRequiresWatch ? ['Apple Fitness+ requires an Apple Watch'] : [])
+      ],
       eligibilityPenaltyCents: missingPrereqCount * 25,
       subtotalCents: discountedSubtotalCents,
       corporateDiscountCents,

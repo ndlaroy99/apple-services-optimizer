@@ -146,6 +146,7 @@ const AppleServicesOptimizer = () => {
     updateFormData("currentSubscriptions", [
       ...formData.currentSubscriptions,
       {
+        id: `${Date.now()}-${Math.random()}`,
         name: currentSubDraft.name.trim(),
         price: parsedPrice,
       },
@@ -154,10 +155,10 @@ const AppleServicesOptimizer = () => {
     setCurrentSubDraft({ name: "", price: "" });
   };
 
-  const removeCurrentSubscription = (name) => {
+  const removeCurrentSubscription = (id) => {
     updateFormData(
       "currentSubscriptions",
-      formData.currentSubscriptions.filter((sub) => sub.name !== name),
+      formData.currentSubscriptions.filter((sub) => sub.id !== id),
     );
   };
 
@@ -442,7 +443,7 @@ const AppleServicesOptimizer = () => {
           <h3 className="font-medium text-gray-700">Your Current Setup:</h3>
           {formData.currentSubscriptions.map((sub) => (
             <div
-              key={`${sub.name}-${sub.price}`}
+              key={sub.id}
               className="flex items-center justify-between rounded bg-gray-50 p-2"
             >
               <span>{sub.name}</span>
@@ -450,7 +451,7 @@ const AppleServicesOptimizer = () => {
                 <span className="font-medium">{formatMoney(sub.price)}/mo</span>
                 <button
                   type="button"
-                  onClick={() => removeCurrentSubscription(sub.name)}
+                  onClick={() => removeCurrentSubscription(sub.id)}
                   className="rounded p-1 text-gray-500 hover:bg-gray-200"
                 >
                   <X className="h-4 w-4" />
@@ -643,27 +644,50 @@ const AppleServicesOptimizer = () => {
           )}
 
           {currentTotal > 0 && (
-            <div className="mt-4 rounded-lg border border-green-300 bg-green-100 p-4">
+            <div
+              className={`mt-4 rounded-lg border p-4 ${
+                monthlySavings > 0
+                  ? "border-green-300 bg-green-100"
+                  : "border-gray-200 bg-gray-50"
+              }`}
+            >
               <div className="mb-2 flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-green-600" />
-                <span className="font-semibold text-green-800">
-                  Your Savings
+                <DollarSign
+                  className={`h-5 w-5 ${
+                    monthlySavings > 0 ? "text-green-600" : "text-gray-500"
+                  }`}
+                />
+                <span
+                  className={`font-semibold ${
+                    monthlySavings > 0 ? "text-green-800" : "text-gray-700"
+                  }`}
+                >
+                  {monthlySavings > 0 ? "Your Savings" : "Cost Comparison"}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <div className="text-sm text-green-700">Monthly Savings</div>
-                  <div className="text-2xl font-bold text-green-600">
-                    {formatMoney(monthlySavings)}
+              {monthlySavings > 0 ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-sm text-green-700">Monthly Savings</div>
+                    <div className="text-2xl font-bold text-green-600">
+                      {formatMoney(monthlySavings)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-green-700">Annual Savings</div>
+                    <div className="text-2xl font-bold text-green-600">
+                      {formatMoney(annualSavings)}
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <div className="text-sm text-green-700">Annual Savings</div>
-                  <div className="text-2xl font-bold text-green-600">
-                    {formatMoney(annualSavings)}
-                  </div>
-                </div>
-              </div>
+              ) : (
+                <p className="text-sm text-gray-600">
+                  Your current setup already costs{" "}
+                  {formatMoney(currentTotal)}/mo, which is{" "}
+                  {formatMoney(Math.abs(monthlySavings))}/mo less than this
+                  recommendation.
+                </p>
+              )}
             </div>
           )}
         </div>
